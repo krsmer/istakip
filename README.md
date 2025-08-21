@@ -1,13 +1,14 @@
 # Çalışan Devam Takip Sistemi
 
-Bu sistem babanızın 7 çalışanı için devam takip sistemidir. Çalışanlar telefonlarından "İşe Geldim" butonuna tıklayarak gelişlerini kaydedebilir, yönetici panelinden de raporlar görülebilir.
+Bu sistem bab3. **"Rapor İndir"** butonuyla raporu bilgisayara indir (CSV formatında)
+4. Geç kalma durumlarını renkli olarak gör:ızın 7 çalışanı için devam takip sistemidir. Çalışanlar telefonlarından "İşe Geldim" butonuna tıklayarak gelişlerini kaydedebilir, yönetici panelinden de raporlar görülebilir.
 
 ## Özellikler
 
 - ✅ Çalışanlar için mobil uyumlu arayüz
 - ✅ "İşe Geldim" butonu ile kolay kayıt
 - ✅ Yönetici paneli ile detaylı raporlar
-- ✅ Excel raporu indirme
+- ✅ CSV raporu indirme (Excel'e açılabilir)
 - ✅ Gerçek zamanlı saat gösterimi
 - ✅ Geç kalma analizi (Zamanında/Hafif Gecikme/Geç Kaldı)
 - ✅ Türkçe arayüz
@@ -55,7 +56,7 @@ Bu sistem babanızın 7 çalışanı için devam takip sistemidir. Çalışanlar
 - **Backend**: Python Flask
 - **Veritabanı**: SQLite (calisanlar.db)
 - **Frontend**: Bootstrap 5 + JavaScript
-- **Excel Export**: pandas + openpyxl
+- **Rapor**: CSV formatı (Excel'de açılabilir)
 
 ## Dosya Yapısı
 

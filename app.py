@@ -1,8 +1,9 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, session
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
-import pandas as pd
 import os
+import csv
+import io
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Flask uygulamasını oluştur
@@ -116,13 +117,14 @@ def yonetici():
     kayitlar = db.session.query(DevamKaydi, Calisan).join(Calisan).order_by(DevamKaydi.tarih.desc(), DevamKaydi.saat.desc()).limit(100).all()
     return render_template('yonetici.html', kayitlar=kayitlar)
 
-# Excel rapor indir - şifre korumalı
+# CSV rapor indir - şifre korumalı  
 @app.route('/excel_indir')
 def excel_indir():
     # Giriş kontrolü
     if not session.get('admin_logged_in'):
-        flash('Excel indirmek için yönetici girişi gerekli!', 'warning')
+        flash('Rapor indirmek için yönetici girişi gerekli!', 'warning')
         return redirect(url_for('admin_login'))
+    
     # Tüm kayıtları al
     kayitlar = db.session.query(
         Calisan.ad,
@@ -131,14 +133,32 @@ def excel_indir():
         DevamKaydi.saat
     ).join(DevamKaydi).order_by(DevamKaydi.tarih.desc()).all()
     
-    # DataFrame oluştur
-    df = pd.DataFrame(kayitlar, columns=['Ad', 'Soyad', 'Tarih', 'Saat'])
+    # CSV formatında oluştur
+    output = io.StringIO()
+    writer = csv.writer(output)
     
-    # Excel dosyası oluştur
-    excel_dosya = 'devam_raporu.xlsx'
-    df.to_excel(excel_dosya, index=False)
+    # Başlık satırı
+    writer.writerow(['Ad', 'Soyad', 'Tarih', 'Saat'])
     
-    return send_file(excel_dosya, as_attachment=True, download_name=f'devam_raporu_{datetime.now().strftime("%Y%m%d")}.xlsx')
+    # Veri satırları
+    for kayit in kayitlar:
+        writer.writerow([
+            kayit.ad, 
+            kayit.soyad, 
+            kayit.tarih.strftime('%d/%m/%Y'), 
+            kayit.saat.strftime('%H:%M')
+        ])
+    
+    # Response oluştur
+    response = app.response_class(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={
+            'Content-Disposition': f'attachment; filename=devam_raporu_{datetime.now().strftime("%Y%m%d")}.csv'
+        }
+    )
+    
+    return response
 
 # Veritabanını oluştur ve örnek veriler ekle
 def create_tables():
