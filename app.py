@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, session
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import csv
 import io
@@ -42,6 +42,30 @@ def get_turkey_date():
 
 def get_turkey_time_only():
     return get_turkey_time().time()
+
+# Otomatik temizlik fonksiyonu - 60 günden eski kayıtları sil
+def temizle_eski_kayitlar():
+    try:
+        # Türkiye saatine göre 60 gün önceki tarihi hesapla
+        altmis_gun_once = get_turkey_date() - timedelta(days=60)
+        
+        # 60 günden eski kayıtları bul
+        eski_kayitlar = DevamKaydi.query.filter(DevamKaydi.tarih < altmis_gun_once).all()
+        
+        if eski_kayitlar:
+            silinen_sayisi = len(eski_kayitlar)
+            # Eski kayıtları sil
+            for kayit in eski_kayitlar:
+                db.session.delete(kayit)
+            
+            db.session.commit()
+            print(f"✅ Otomatik temizlik: {silinen_sayisi} adet eski kayıt silindi (60 günden eski)")
+        else:
+            print("ℹ️  Otomatik temizlik: Silinecek eski kayıt bulunamadı")
+            
+    except Exception as e:
+        print(f"❌ Otomatik temizlik hatası: {str(e)}")
+        db.session.rollback()
 
 # Devam Kaydı Modeli
 class DevamKaydi(db.Model):
@@ -114,15 +138,17 @@ def ise_geldi(id):
 @app.route('/admin-login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
-        sifre = request.form.get('sifre', '')
-        print(f"Girilen şifre: '{sifre}'")  # Debug için
+        sifre = request.form.get('sifre', '').strip()
+        print(f"POST isteği geldi. Girilen şifre: '{sifre}'")  # Debug için
         
         # Babanz için şifre: "yonetici123"
         if sifre == 'yonetici123':
             session['admin_logged_in'] = True
+            print("Şifre doğru, session ayarlandı, yönlendiriliyor...")  # Debug
             flash('Başarıyla giriş yaptınız!', 'success')
             return redirect(url_for('yonetici'))
         else:
+            print(f"Şifre yanlış: '{sifre}' != 'yonetici123'")  # Debug
             flash('Yanlış şifre! Tekrar deneyin.', 'danger')
     
     return render_template('admin_login.html')
@@ -142,9 +168,44 @@ def yonetici():
         flash('Yönetici paneline erişim için giriş yapmalısınız!', 'warning')
         return redirect(url_for('admin_login'))
     
-    # Son 30 günün kayıtları
+    # Son 100 kayıt (tüm çalışanlardan)
     kayitlar = db.session.query(DevamKaydi, Calisan).join(Calisan).order_by(DevamKaydi.tarih.desc(), DevamKaydi.saat.desc()).limit(100).all()
-    return render_template('yonetici.html', kayitlar=kayitlar)
+    
+    # Çalışan listesi de gönder (detay için)
+    calisanlar = Calisan.query.all()
+    
+    return render_template('yonetici.html', kayitlar=kayitlar, calisanlar=calisanlar)
+
+# Çalışan detay sayfası - belirli bir çalışanın tüm kayıtları
+@app.route('/calisan_detay/<int:calisan_id>')
+def calisan_detay(calisan_id):
+    # Giriş kontrolü
+    if not session.get('admin_logged_in'):
+        flash('Bu sayfaya erişim için yönetici girişi gerekli!', 'warning')
+        return redirect(url_for('admin_login'))
+    
+    # Çalışan bilgileri
+    calisan = Calisan.query.get_or_404(calisan_id)
+    
+    # Bu çalışanın tüm kayıtları (en yeniden eskiye)
+    kayitlar = DevamKaydi.query.filter_by(calisan_id=calisan_id).order_by(DevamKaydi.tarih.desc(), DevamKaydi.saat.desc()).all()
+    
+    # İstatistikler hesapla
+    toplam_gun = len(kayitlar)
+    zamaninda = len([k for k in kayitlar if k.saat.hour <= 8])
+    hafif_gec = len([k for k in kayitlar if 9 <= k.saat.hour <= 9])
+    gec_kaldi = len([k for k in kayitlar if k.saat.hour >= 10])
+    
+    istatistikler = {
+        'toplam_gun': toplam_gun,
+        'zamaninda': zamaninda,
+        'hafif_gec': hafif_gec,
+        'gec_kaldi': gec_kaldi,
+        'zamaninda_oran': round((zamaninda/toplam_gun*100) if toplam_gun > 0 else 0, 1),
+        'gec_oran': round(((hafif_gec+gec_kaldi)/toplam_gun*100) if toplam_gun > 0 else 0, 1)
+    }
+    
+    return render_template('calisan_detay.html', calisan=calisan, kayitlar=kayitlar, istatistikler=istatistikler)
 
 # CSV rapor indir - şifre korumalı  
 @app.route('/excel_indir')
@@ -190,6 +251,34 @@ def excel_indir():
     
     return response
 
+# Manuel temizlik rotası - Yönetici için
+@app.route('/temizlik', methods=['POST'])
+def manuel_temizlik():
+    # Giriş kontrolü
+    if not session.get('admin_logged_in'):
+        flash('Bu işlem için yönetici girişi gerekli!', 'warning')
+        return redirect(url_for('admin_login'))
+    
+    try:
+        # 60 günden eski kayıtları temizle
+        altmis_gun_once = get_turkey_date() - timedelta(days=60)
+        eski_kayitlar = DevamKaydi.query.filter(DevamKaydi.tarih < altmis_gun_once).all()
+        
+        if eski_kayitlar:
+            silinen_sayisi = len(eski_kayitlar)
+            for kayit in eski_kayitlar:
+                db.session.delete(kayit)
+            db.session.commit()
+            flash(f'✅ {silinen_sayisi} adet eski kayıt (60 günden eski) başarıyla temizlendi!', 'success')
+        else:
+            flash('ℹ️ Temizlenecek eski kayıt bulunamadı.', 'info')
+            
+    except Exception as e:
+        db.session.rollback()
+        flash(f'❌ Temizlik sırasında hata oluştu: {str(e)}', 'danger')
+    
+    return redirect(url_for('yonetici'))
+
 # Veritabanını oluştur ve örnek veriler ekle
 def create_tables():
     try:
@@ -212,6 +301,10 @@ def create_tables():
             
             db.session.commit()
             print("Veritabanı ve örnek veriler oluşturuldu!")
+        
+        # Uygulama başlangıcında otomatik temizlik yap
+        temizle_eski_kayitlar()
+        
     except Exception as e:
         print(f"Veritabanı oluşturma hatası: {e}")
         # Hata durumunda boş tablo oluştur

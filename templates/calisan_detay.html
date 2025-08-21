@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}{{ calisan.ad }} {{ calisan.soyad }} - Detaylı Rapor{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- Geri Dön Butonu -->
+        <div class="mb-3">
+            <a href="{{ url_for('yonetici') }}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Yönetici Paneline Dön
+            </a>
+        </div>
+
+        <!-- Çalışan Bilgileri ve İstatistikler -->
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h3 class="card-title mb-0">
+                    <i class="bi bi-person-circle"></i> {{ calisan.ad }} {{ calisan.soyad }}
+                </h3>
+                <p class="mb-0 opacity-75">
+                    <i class="bi bi-telephone"></i> {{ calisan.telefon }}
+                </p>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="card border-primary">
+                            <div class="card-body">
+                                <h4 class="text-primary">{{ istatistikler.toplam_gun }}</h4>
+                                <p class="card-text">Toplam İş Günü</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card border-success">
+                            <div class="card-body">
+                                <h4 class="text-success">{{ istatistikler.zamaninda }}</h4>
+                                <p class="card-text">Zamanında Geldi</p>
+                                <small class="text-muted">%{{ istatistikler.zamaninda_oran }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card border-warning">
+                            <div class="card-body">
+                                <h4 class="text-warning">{{ istatistikler.hafif_gec }}</h4>
+                                <p class="card-text">Hafif Gecikme</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card border-danger">
+                            <div class="card-body">
+                                <h4 class="text-danger">{{ istatistikler.gec_kaldi }}</h4>
+                                <p class="card-text">Geç Kaldı</p>
+                                <small class="text-muted">%{{ istatistikler.gec_oran }}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detaylı Kayıt Listesi -->
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="card-title mb-0">
+                        <i class="bi bi-calendar-check"></i> Devam Detayları
+                    </h4>
+                    <p class="mb-0 opacity-75">{{ calisan.ad }}'in tüm iş günleri</p>
+                </div>
+                <a href="{{ url_for('excel_indir') }}" class="btn btn-success btn-sm">
+                    <i class="bi bi-download"></i> Tüm Raporu İndir
+                </a>
+            </div>
+            <div class="card-body">
+                {% if kayitlar %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th><i class="bi bi-calendar"></i> Tarih</th>
+                                    <th><i class="bi bi-clock"></i> Varış Saati</th>
+                                    <th><i class="bi bi-info-circle"></i> Durum</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for kayit in kayitlar %}
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-info text-dark">
+                                                {{ kayit.tarih.strftime('%d/%m/%Y') }}
+                                            </span>
+                                            <br>
+                                            <small class="text-muted">
+                                                {{ kayit.tarih.strftime('%A') }}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <span class="h5 
+                                                {% if kayit.saat.hour <= 8 %}text-success
+                                                {% elif kayit.saat.hour <= 9 %}text-warning  
+                                                {% else %}text-danger
+                                                {% endif %}">
+                                                {{ kayit.saat.strftime('%H:%M') }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if kayit.saat.hour <= 8 %}
+                                                <span class="badge bg-success">
+                                                    <i class="bi bi-check-circle"></i> Zamanında
+                                                </span>
+                                            {% elif kayit.saat.hour <= 9 %}
+                                                <span class="badge bg-warning">
+                                                    <i class="bi bi-clock"></i> Hafif Gecikme
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-danger">
+                                                    <i class="bi bi-x-circle"></i> Geç Kaldı
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info text-center">
+                        <i class="bi bi-info-circle"></i> {{ calisan.ad }} {{ calisan.soyad }} henüz hiç işe geldi kaydı yapmamış.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
