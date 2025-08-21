@@ -6,9 +6,17 @@ import csv
 import io
 from werkzeug.security import generate_password_hash, check_password_hash
 import pytz
+import math
 
 # Türkiye saat dilimi
 TURKEY_TZ = pytz.timezone('Europe/Istanbul')
+
+# İş yeri konum ayarları (GPS koordinatları)
+WORK_LOCATION = {
+    'latitude': 36.938609,    # Babanızın iş yerinin gerçek enlemi
+    'longitude': 34.847155,   # Babanızın iş yerinin gerçek boylamı
+    'radius': 150           # İzin verilen mesafe (metre) - iş yerinden 150m içinde
+}
 
 # Flask uygulamasını oluştur
 app = Flask(__name__)
@@ -344,6 +352,65 @@ def create_tables():
         print(f"Veritabanı oluşturma hatası: {e}")
         # Hata durumunda boş tablo oluştur
         db.create_all()
+
+# GPS Konum Kontrolü Fonksiyonları
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """İki GPS koordinatı arasındaki mesafeyi metre cinsinden hesaplar"""
+    # Dünya'nın yarıçapı (km)
+    R = 6371000  # metre cinsinden
+    
+    # Dereceleri radyana çevir
+    lat1_rad = math.radians(lat1)
+    lon1_rad = math.radians(lon1)
+    lat2_rad = math.radians(lat2)
+    lon2_rad = math.radians(lon2)
+    
+    # Farkları hesapla
+    dlat = lat2_rad - lat1_rad
+    dlon = lon2_rad - lon1_rad
+    
+    # Haversine formülü
+    a = math.sin(dlat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2
+    c = 2 * math.asin(math.sqrt(a))
+    
+    return R * c
+
+@app.route('/check_location', methods=['POST'])
+def check_location():
+    """Çalışanın konumunu kontrol eder"""
+    try:
+        data = request.get_json()
+        user_lat = float(data['latitude'])
+        user_lon = float(data['longitude'])
+        
+        # İş yeri koordinatları
+        work_lat = WORK_LOCATION['latitude']
+        work_lon = WORK_LOCATION['longitude']
+        allowed_radius = WORK_LOCATION['radius']
+        
+        # Mesafe hesapla
+        distance = haversine_distance(work_lat, work_lon, user_lat, user_lon)
+        
+        if distance <= allowed_radius:
+            return jsonify({
+                'success': True,
+                'message': f'Konum doğrulandı. İş yerine {distance:.0f} metre uzaklıktasınız.',
+                'distance': round(distance)
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': f'İş yerine çok uzaksınız ({distance:.0f} metre). Lütfen iş yerine yaklaşın.',
+                'distance': round(distance),
+                'required_distance': allowed_radius
+            })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': 'Konum kontrolü başarısız. Lütfen GPS\'inizin açık olduğundan emin olun.',
+            'error': str(e)
+        })
 
 if __name__ == '__main__':
     with app.app_context():

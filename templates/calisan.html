@@ -21,8 +21,14 @@
                     <h5 class="text-success" id="su-anki-saat"></h5>
                 </div>
                 
-                <button id="ise-geldi-btn" class="btn btn-success btn-lg mb-3" onclick="iseGeldiKaydet()">
-                    <i class="bi bi-check-circle"></i> İŞ YERİNE GELDİM
+                <div id="location-status" class="alert alert-info mb-3" style="display: none;">
+                    <i class="bi bi-geo-alt"></i> <span id="location-message">Konum kontrol ediliyor...</span>
+                </div>
+                
+                <button id="ise-geldi-btn" class="btn btn-primary btn-lg mb-3" 
+                        onclick="checkLocationAndSubmit()" disabled>
+                    <i class="bi bi-geo-alt-fill me-2"></i>
+                    Konum Kontrol Et ve İŞE GELDİM
                 </button>
                 
                 <div id="sonuc-mesaj" class="alert" style="display: none;"></div>
@@ -63,7 +69,101 @@
     setInterval(saatGuncelle, 1000);
     saatGuncelle(); // İlk yükleme
     
-    // İşe geldi kaydı
+    // GPS Konum Kontrolü
+    function checkLocationAndSubmit() {
+        const btn = document.getElementById('ise-geldi-btn');
+        const locationStatus = document.getElementById('location-status');
+        const locationMessage = document.getElementById('location-message');
+        
+        // Konum kontrol mesajı göster
+        locationStatus.style.display = 'block';
+        locationStatus.className = 'alert alert-info mb-3';
+        locationMessage.textContent = 'GPS konumunuz kontrol ediliyor...';
+        
+        // Butonu devre dışı bırak
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Konum Kontrol Ediliyor...';
+        
+        // GPS konum al
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                // Başarılı konum alma
+                function(position) {
+                    const userLat = position.coords.latitude;
+                    const userLon = position.coords.longitude;
+                    
+                    // Konum kontrolü için backend'e gönder
+                    fetch('/check_location', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            latitude: userLat,
+                            longitude: userLon
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Konum onaylandı, işe geldi kaydı yap
+                            locationStatus.className = 'alert alert-success mb-3';
+                            locationMessage.textContent = data.message;
+                            iseGeldiKaydet();
+                        } else {
+                            // Konum uygun değil
+                            locationStatus.className = 'alert alert-danger mb-3';
+                            locationMessage.textContent = data.message;
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="bi bi-geo-alt-fill me-2"></i> Konum Kontrol Et ve İŞE GELDİM';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Konum kontrol hatası:', error);
+                        locationStatus.className = 'alert alert-danger mb-3';
+                        locationMessage.textContent = 'Konum kontrolü başarısız oldu!';
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-geo-alt-fill me-2"></i> Konum Kontrol Et ve İŞE GELDİM';
+                    });
+                },
+                // Konum alma hatası
+                function(error) {
+                    let errorMessage = '';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage = 'Konum erişimi reddedildi. Lütfen tarayıcı ayarlarından konum iznini açın.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage = 'Konum bilgisi alınamıyor.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMessage = 'Konum alma işlemi zaman aşımına uğradı.';
+                            break;
+                        default:
+                            errorMessage = 'Bilinmeyen konum hatası oluştu.';
+                            break;
+                    }
+                    
+                    locationStatus.className = 'alert alert-danger mb-3';
+                    locationMessage.textContent = errorMessage;
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-geo-alt-fill me-2"></i> Konum Kontrol Et ve İŞE GELDİM';
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 60000
+                }
+            );
+        } else {
+            locationStatus.className = 'alert alert-danger mb-3';
+            locationMessage.textContent = 'Bu tarayıcı konum hizmetlerini desteklemiyor.';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-geo-alt-fill me-2"></i> Konum Kontrol Et ve İŞE GELDİM';
+        }
+    }
+    
+    // İşe geldi kaydı (konum onaylandıktan sonra)
     function iseGeldiKaydet() {
         const btn = document.getElementById('ise-geldi-btn');
         const sonucMesaj = document.getElementById('sonuc-mesaj');
@@ -90,7 +190,7 @@
             } else {
                 sonucMesaj.className = 'alert alert-warning';
                 sonucMesaj.innerHTML = '<i class="bi bi-exclamation-triangle"></i> ' + data.message;
-                btn.innerHTML = '<i class="bi bi-check-circle"></i> İŞ YERİNE GELDİM';
+                btn.innerHTML = '<i class="bi bi-geo-alt-fill me-2"></i> Konum Kontrol Et ve İŞE GELDİM';
                 btn.disabled = false;
             }
         })
@@ -100,9 +200,14 @@
             sonucMesaj.className = 'alert alert-danger';
             sonucMesaj.innerHTML = '<i class="bi bi-x-circle"></i> Bir hata oluştu, tekrar deneyin.';
             
-            btn.innerHTML = '<i class="bi bi-check-circle"></i> İŞ YERİNE GELDİM';
+            btn.innerHTML = '<i class="bi bi-geo-alt-fill me-2"></i> Konum Kontrol Et ve İŞE GELDİM';
             btn.disabled = false;
         });
     }
+    
+    // Sayfa yüklendiğinde butonu etkinleştir (test için)
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('ise-geldi-btn').disabled = false;
+    });
 </script>
 {% endblock %}
