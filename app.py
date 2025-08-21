@@ -10,7 +10,6 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 
 # Vercel için database yolu
-import os
 db_path = os.environ.get('DATABASE_URL', 'sqlite:///calisanlar.db')
 app.config['SQLALCHEMY_DATABASE_URI'] = db_path
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -32,8 +31,8 @@ class Calisan(db.Model):
 class DevamKaydi(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     calisan_id = db.Column(db.Integer, db.ForeignKey('calisan.id'), nullable=False)
-    tarih = db.Column(db.Date, nullable=False, default=datetime.utcnow().date)
-    saat = db.Column(db.Time, nullable=False, default=datetime.utcnow().time)
+    tarih = db.Column(db.Date, nullable=False, default=lambda: datetime.now().date())
+    saat = db.Column(db.Time, nullable=False, default=lambda: datetime.now().time())
     
     # İlişki
     calisan = db.relationship('Calisan', backref=db.backref('devam_kayitlari', lazy=True))
@@ -166,12 +165,3 @@ if __name__ == '__main__':
     with app.app_context():
         create_tables()
     app.run(debug=True, host='0.0.0.0', port=5000)
-
-# Vercel için handler
-def handler(request):
-    with app.app_context():
-        create_tables()
-    return app(request.environ, lambda status, headers: None)
-
-# Vercel için
-app_instance = app
