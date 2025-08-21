@@ -10,8 +10,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 
-# Vercel için database yolu
-db_path = os.environ.get('DATABASE_URL', 'sqlite:///calisanlar.db')
+# Database yolu - Render için düzenle
+import tempfile
+db_path = os.environ.get('DATABASE_URL', f'sqlite:///{tempfile.gettempdir()}/calisanlar.db')
 app.config['SQLALCHEMY_DATABASE_URI'] = db_path
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -44,8 +45,15 @@ class DevamKaydi(db.Model):
 # Ana sayfa - Çalışan listesi
 @app.route('/')
 def index():
-    calisanlar = Calisan.query.all()
-    return render_template('index.html', calisanlar=calisanlar)
+    try:
+        calisanlar = Calisan.query.all()
+        return render_template('index.html', calisanlar=calisanlar)
+    except Exception as e:
+        print(f"Ana sayfa hatası: {e}")
+        # Veritabanı sorunu varsa yeniden oluştur
+        create_tables()
+        calisanlar = Calisan.query.all()
+        return render_template('index.html', calisanlar=calisanlar)
 
 # Çalışan giriş sayfası
 @app.route('/calisan/<int:id>')
@@ -162,26 +170,34 @@ def excel_indir():
 
 # Veritabanını oluştur ve örnek veriler ekle
 def create_tables():
-    db.create_all()
-    
-    # Örnek çalışanlar ekle (sadece ilk çalıştırmada)
-    if not Calisan.query.first():
-        ornekler = [
-            Calisan(ad='Ahmet', soyad='Yılmaz', telefon='05551234567'),
-            Calisan(ad='Fatma', soyad='Demir', telefon='05551234568'),
-            Calisan(ad='Mehmet', soyad='Kaya', telefon='05551234569'),
-            Calisan(ad='Ayşe', soyad='Öztürk', telefon='05551234570'),
-            Calisan(ad='Ali', soyad='Şahin', telefon='05551234571'),
-            Calisan(ad='Zeynep', soyad='Çelik', telefon='05551234572'),
-            Calisan(ad='Mustafa', soyad='Arslan', telefon='05551234573')
-        ]
+    try:
+        db.create_all()
         
-        for calisan in ornekler:
-            db.session.add(calisan)
-        
-        db.session.commit()
+        # Örnek çalışanlar ekle (sadece ilk çalıştırmada)
+        if not Calisan.query.first():
+            ornekler = [
+                Calisan(ad='Ahmet', soyad='Yılmaz', telefon='05551234567'),
+                Calisan(ad='Fatma', soyad='Demir', telefon='05551234568'),
+                Calisan(ad='Mehmet', soyad='Kaya', telefon='05551234569'),
+                Calisan(ad='Ayşe', soyad='Öztürk', telefon='05551234570'),
+                Calisan(ad='Ali', soyad='Şahin', telefon='05551234571'),
+                Calisan(ad='Zeynep', soyad='Çelik', telefon='05551234572'),
+                Calisan(ad='Mustafa', soyad='Arslan', telefon='05551234573')
+            ]
+            
+            for calisan in ornekler:
+                db.session.add(calisan)
+            
+            db.session.commit()
+            print("Veritabanı ve örnek veriler oluşturuldu!")
+    except Exception as e:
+        print(f"Veritabanı oluşturma hatası: {e}")
+        # Hata durumunda boş tablo oluştur
+        db.create_all()
 
 if __name__ == '__main__':
     with app.app_context():
         create_tables()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Production'da debug False olmalı ama sorun giderme için True
+    debug_mode = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
+    app.run(debug=debug_mode, host='0.0.0.0', port=5000)
