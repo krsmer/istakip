@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}{{ calisan.ad }} {{ calisan.soyad }} - Devam Kaydı{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <div class="mb-4">
+                    <i class="bi bi-person-circle" style="font-size: 5rem; color: #667eea;"></i>
+                </div>
+                
+                <h2 class="mb-3">Merhaba, {{ calisan.ad }}!</h2>
+                <p class="text-muted mb-4">İş yerine geldiğinizi kaydetmek için butona tıklayın</p>
+                
+                <div class="mb-4">
+                    <p class="mb-2"><strong>Bugünün Tarihi:</strong></p>
+                    <h5 class="text-primary" id="bugun-tarih"></h5>
+                    <p class="mb-2 mt-3"><strong>Şu Anki Saat:</strong></p>
+                    <h5 class="text-success" id="su-anki-saat"></h5>
+                </div>
+                
+                <button id="ise-geldi-btn" class="btn btn-success btn-lg mb-3" onclick="iseGeldiKaydet()">
+                    <i class="bi bi-check-circle"></i> İŞ YERİNE GELDİM
+                </button>
+                
+                <div id="sonuc-mesaj" class="alert" style="display: none;"></div>
+                
+                <div class="mt-4">
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Geri Dön
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Tarih ve saati güncelle
+    function saatGuncelle() {
+        const simdi = new Date();
+        
+        // Türkçe tarih formatı
+        const tarihOptions = { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric',
+            weekday: 'long'
+        };
+        document.getElementById('bugun-tarih').textContent = 
+            simdi.toLocaleDateString('tr-TR', tarihOptions);
+        
+        // Saat formatı
+        document.getElementById('su-anki-saat').textContent = 
+            simdi.toLocaleTimeString('tr-TR');
+    }
+    
+    // Her saniye güncelle
+    setInterval(saatGuncelle, 1000);
+    saatGuncelle(); // İlk yükleme
+    
+    // İşe geldi kaydı
+    function iseGeldiKaydet() {
+        const btn = document.getElementById('ise-geldi-btn');
+        const sonucMesaj = document.getElementById('sonuc-mesaj');
+        
+        // Butonu devre dışı bırak
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Kaydediliyor...';
+        
+        fetch('{{ url_for("ise_geldi", id=calisan.id) }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            sonucMesaj.style.display = 'block';
+            
+            if (data.success) {
+                sonucMesaj.className = 'alert alert-success';
+                sonucMesaj.innerHTML = '<i class="bi bi-check-circle"></i> ' + data.message;
+                btn.innerHTML = '<i class="bi bi-check"></i> KAYIT TAMAMLANDI';
+                btn.className = 'btn btn-outline-success btn-lg mb-3';
+            } else {
+                sonucMesaj.className = 'alert alert-warning';
+                sonucMesaj.innerHTML = '<i class="bi bi-exclamation-triangle"></i> ' + data.message;
+                btn.innerHTML = '<i class="bi bi-check-circle"></i> İŞ YERİNE GELDİM';
+                btn.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Hata:', error);
+            sonucMesaj.style.display = 'block';
+            sonucMesaj.className = 'alert alert-danger';
+            sonucMesaj.innerHTML = '<i class="bi bi-x-circle"></i> Bir hata oluştu, tekrar deneyin.';
+            
+            btn.innerHTML = '<i class="bi bi-check-circle"></i> İŞ YERİNE GELDİM';
+            btn.disabled = false;
+        });
+    }
+</script>
+{% endblock %}

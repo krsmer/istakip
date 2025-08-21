@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Yönetici Paneli - Devam Raporları{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="card-title mb-0">
+                        <i class="bi bi-graph-up"></i> Yönetici Paneli
+                    </h3>
+                    <p class="mb-0 opacity-75">Çalışan devam raporları</p>
+                </div>
+                <a href="{{ url_for('excel_indir') }}" class="btn btn-success">
+                    <i class="bi bi-file-earmark-excel"></i> Excel İndir
+                </a>
+            </div>
+            <div class="card-body">
+                {% if kayitlar %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th><i class="bi bi-person"></i> Çalışan</th>
+                                    <th><i class="bi bi-calendar"></i> Tarih</th>
+                                    <th><i class="bi bi-clock"></i> Saat</th>
+                                    <th><i class="bi bi-info-circle"></i> Durum</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for kayit, calisan in kayitlar %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ calisan.ad }} {{ calisan.soyad }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ calisan.telefon }}</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">
+                                                {{ kayit.tarih.strftime('%d/%m/%Y') }}
+                                            </span>
+                                            <br>
+                                            <small class="text-muted">
+                                                {{ kayit.tarih.strftime('%A') }}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <span class="h5 
+                                                {% if kayit.saat.hour <= 8 %}text-success
+                                                {% elif kayit.saat.hour <= 9 %}text-warning  
+                                                {% else %}text-danger
+                                                {% endif %}">
+                                                {{ kayit.saat.strftime('%H:%M') }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if kayit.saat.hour <= 8 %}
+                                                <span class="badge bg-success">
+                                                    <i class="bi bi-check-circle"></i> Zamanında
+                                                </span>
+                                            {% elif kayit.saat.hour <= 9 %}
+                                                <span class="badge bg-warning">
+                                                    <i class="bi bi-clock"></i> Hafif Gecikme
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-danger">
+                                                    <i class="bi bi-x-circle"></i> Geç Kaldı
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Özet İstatistikler -->
+                    <div class="row mt-4">
+                        <div class="col-md-12">
+                            <h5><i class="bi bi-bar-chart"></i> Genel İstatistikler</h5>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h4>{{ kayitlar|length }}</h4>
+                                    <p class="mb-0">Toplam Kayıt</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h4>{{ kayitlar|selectattr('0.saat')|selectattr('0.saat.hour', '<=', 8)|list|length }}</h4>
+                                    <p class="mb-0">Zamanında</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body text-center">
+                                    <h4>{{ kayitlar|selectattr('0.saat')|selectattr('0.saat.hour', '>', 8)|selectattr('0.saat.hour', '<=', 9)|list|length }}</h4>
+                                    <p class="mb-0">Hafif Gecikme</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body text-center">
+                                    <h4>{{ kayitlar|selectattr('0.saat')|selectattr('0.saat.hour', '>', 9)|list|length }}</h4>
+                                    <p class="mb-0">Geç Kaldı</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-inbox" style="font-size: 4rem; color: #6c757d;"></i>
+                        <h4 class="mt-3 text-muted">Henüz devam kaydı bulunmuyor</h4>
+                        <p class="text-muted">Çalışanlar işe geldiklerinde kayıtlar burada görünecek.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
