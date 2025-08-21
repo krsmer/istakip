@@ -5,6 +5,10 @@ import os
 import csv
 import io
 from werkzeug.security import generate_password_hash, check_password_hash
+import pytz
+
+# Türkiye saat dilimi
+TURKEY_TZ = pytz.timezone('Europe/Istanbul')
 
 # Flask uygulamasını oluştur
 app = Flask(__name__)
@@ -29,12 +33,22 @@ class Calisan(db.Model):
     def __repr__(self):
         return f'<Calisan {self.ad} {self.soyad}>'
 
+# Türkiye saati için yardımcı fonksiyon
+def get_turkey_time():
+    return datetime.now(TURKEY_TZ)
+
+def get_turkey_date():
+    return get_turkey_time().date()
+
+def get_turkey_time_only():
+    return get_turkey_time().time()
+
 # Devam Kaydı Modeli
 class DevamKaydi(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     calisan_id = db.Column(db.Integer, db.ForeignKey('calisan.id'), nullable=False)
-    tarih = db.Column(db.Date, nullable=False, default=lambda: datetime.now().date())
-    saat = db.Column(db.Time, nullable=False, default=lambda: datetime.now().time())
+    tarih = db.Column(db.Date, nullable=False, default=get_turkey_date)
+    saat = db.Column(db.Time, nullable=False, default=get_turkey_time_only)
     
     # İlişki
     calisan = db.relationship('Calisan', backref=db.backref('devam_kayitlari', lazy=True))
@@ -66,8 +80,11 @@ def calisan_sayfasi(id):
 def ise_geldi(id):
     calisan = Calisan.query.get_or_404(id)
     
+    # Türkiye saatini kullan
+    turkey_time = get_turkey_time()
+    bugun = turkey_time.date()
+    
     # Bugün zaten kayıt var mı kontrol et
-    bugun = datetime.now().date()
     mevcut_kayit = DevamKaydi.query.filter_by(
         calisan_id=id, 
         tarih=bugun
@@ -79,8 +96,12 @@ def ise_geldi(id):
             'message': f'{calisan.ad} {calisan.soyad}, bugün zaten iş yerine geldiğinizi kaydetmişsiniz!'
         })
     
-    # Yeni kayıt oluştur
-    yeni_kayit = DevamKaydi(calisan_id=id)
+    # Yeni kayıt oluştur (Türkiye saati ile)
+    yeni_kayit = DevamKaydi(
+        calisan_id=id,
+        tarih=bugun,
+        saat=turkey_time.time()
+    )
     db.session.add(yeni_kayit)
     db.session.commit()
     
@@ -157,12 +178,13 @@ def excel_indir():
             kayit.saat.strftime('%H:%M')
         ])
     
-    # Response oluştur
+    # Response oluştur - Türkiye saati ile dosya adı
+    turkey_now = get_turkey_time()
     response = app.response_class(
         output.getvalue(),
         mimetype='text/csv',
         headers={
-            'Content-Disposition': f'attachment; filename=devam_raporu_{datetime.now().strftime("%Y%m%d")}.csv'
+            'Content-Disposition': f'attachment; filename=devam_raporu_{turkey_now.strftime("%Y%m%d")}.csv'
         }
     )
     
