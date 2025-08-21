@@ -18,8 +18,13 @@ class FirebaseDB:
             
             if firebase_creds:
                 # Production (Vercel) - environment variable'dan
-                cred_dict = json.loads(firebase_creds)
-                cred = credentials.Certificate(cred_dict)
+                try:
+                    cred_dict = json.loads(firebase_creds)
+                    cred = credentials.Certificate(cred_dict)
+                except json.JSONDecodeError as json_error:
+                    print(f"❌ Firebase credentials JSON parse hatası: {json_error}")
+                    self.db = None
+                    return
             else:
                 # Local development - service account key dosyasından
                 cred = credentials.Certificate('firebase-service-account.json')
@@ -32,6 +37,8 @@ class FirebaseDB:
             
         except Exception as e:
             print(f"❌ Firebase bağlantı hatası: {e}")
+            import traceback
+            traceback.print_exc()
             self.db = None
     
     def add_attendance(self, name, check_in_time=None):
