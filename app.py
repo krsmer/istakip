@@ -14,10 +14,21 @@ TURKEY_TZ = pytz.timezone('Europe/Istanbul')
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 
-# Database yolu - Render için düzenle
-import tempfile
-db_path = os.environ.get('DATABASE_URL', f'sqlite:///{tempfile.gettempdir()}/calisanlar.db')
-app.config['SQLALCHEMY_DATABASE_URI'] = db_path
+# Database yapılandırması - PostgreSQL öncelikli, SQLite fallback
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    # PostgreSQL (Render.com production)
+    if DATABASE_URL.startswith('postgres://'):
+        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+    print("🐘 PostgreSQL veritabanı kullanılıyor (Kalıcı veri)")
+else:
+    # SQLite (yerel geliştirme)
+    import tempfile
+    db_path = f'sqlite:///{tempfile.gettempdir()}/calisanlar.db'
+    app.config['SQLALCHEMY_DATABASE_URI'] = db_path
+    print("📁 SQLite veritabanı kullanılıyor (Yerel test)")
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Veritabanı
