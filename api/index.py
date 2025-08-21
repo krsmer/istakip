@@ -6,12 +6,11 @@ import os
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Flask uygulamasını oluştur
-app = Flask(__name__)
+app = Flask(__name__, template_folder='../templates')
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 
 # Vercel için database yolu
-import os
-db_path = os.environ.get('DATABASE_URL', 'sqlite:///calisanlar.db')
+db_path = os.environ.get('DATABASE_URL', 'sqlite:////tmp/calisanlar.db')
 app.config['SQLALCHEMY_DATABASE_URI'] = db_path
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -32,14 +31,35 @@ class Calisan(db.Model):
 class DevamKaydi(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     calisan_id = db.Column(db.Integer, db.ForeignKey('calisan.id'), nullable=False)
-    tarih = db.Column(db.Date, nullable=False, default=datetime.utcnow().date)
-    saat = db.Column(db.Time, nullable=False, default=datetime.utcnow().time)
+    tarih = db.Column(db.Date, nullable=False, default=datetime.now().date)
+    saat = db.Column(db.Time, nullable=False, default=datetime.now().time)
     
     # İlişki
     calisan = db.relationship('Calisan', backref=db.backref('devam_kayitlari', lazy=True))
     
     def __repr__(self):
         return f'<DevamKaydi {self.calisan.ad} {self.tarih} {self.saat}>'
+
+# Veritabanını oluştur ve örnek veriler ekle
+def create_tables():
+    db.create_all()
+    
+    # Örnek çalışanlar ekle (sadece ilk çalıştırmada)
+    if not Calisan.query.first():
+        ornekler = [
+            Calisan(ad='Ahmet', soyad='Yılmaz', telefon='05551234567'),
+            Calisan(ad='Fatma', soyad='Demir', telefon='05551234568'),
+            Calisan(ad='Mehmet', soyad='Kaya', telefon='05551234569'),
+            Calisan(ad='Ayşe', soyad='Öztürk', telefon='05551234570'),
+            Calisan(ad='Ali', soyad='Şahin', telefon='05551234571'),
+            Calisan(ad='Zeynep', soyad='Çelik', telefon='05551234572'),
+            Calisan(ad='Mustafa', soyad='Arslan', telefon='05551234573')
+        ]
+        
+        for calisan in ornekler:
+            db.session.add(calisan)
+        
+        db.session.commit()
 
 # Ana sayfa - Çalışan listesi
 @app.route('/')
@@ -86,7 +106,6 @@ def ise_geldi(id):
 def admin_login():
     if request.method == 'POST':
         sifre = request.form.get('sifre', '')
-        print(f"Girilen şifre: '{sifre}'")  # Debug için
         
         # Babanz için şifre: "yonetici123"
         if sifre == 'yonetici123':
@@ -124,6 +143,7 @@ def excel_indir():
     if not session.get('admin_logged_in'):
         flash('Excel indirmek için yönetici girişi gerekli!', 'warning')
         return redirect(url_for('admin_login'))
+    
     # Tüm kayıtları al
     kayitlar = db.session.query(
         Calisan.ad,
@@ -136,42 +156,18 @@ def excel_indir():
     df = pd.DataFrame(kayitlar, columns=['Ad', 'Soyad', 'Tarih', 'Saat'])
     
     # Excel dosyası oluştur
-    excel_dosya = 'devam_raporu.xlsx'
+    excel_dosya = '/tmp/devam_raporu.xlsx'
     df.to_excel(excel_dosya, index=False)
     
     return send_file(excel_dosya, as_attachment=True, download_name=f'devam_raporu_{datetime.now().strftime("%Y%m%d")}.xlsx')
 
-# Veritabanını oluştur ve örnek veriler ekle
-def create_tables():
-    db.create_all()
-    
-    # Örnek çalışanlar ekle (sadece ilk çalıştırmada)
-    if not Calisan.query.first():
-        ornekler = [
-            Calisan(ad='Ahmet', soyad='Yılmaz', telefon='05551234567'),
-            Calisan(ad='Fatma', soyad='Demir', telefon='05551234568'),
-            Calisan(ad='Mehmet', soyad='Kaya', telefon='05551234569'),
-            Calisan(ad='Ayşe', soyad='Öztürk', telefon='05551234570'),
-            Calisan(ad='Ali', soyad='Şahin', telefon='05551234571'),
-            Calisan(ad='Zeynep', soyad='Çelik', telefon='05551234572'),
-            Calisan(ad='Mustafa', soyad='Arslan', telefon='05551234573')
-        ]
-        
-        for calisan in ornekler:
-            db.session.add(calisan)
-        
-        db.session.commit()
+# Vercel için initialization
+with app.app_context():
+    create_tables()
 
-if __name__ == '__main__':
-    with app.app_context():
-        create_tables()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+# Vercel handler
+def handler(event, context):
+    return app
 
-# Vercel için handler
-def handler(request):
-    with app.app_context():
-        create_tables()
-    return app(request.environ, lambda status, headers: None)
-
-# Vercel için
-app_instance = app
+# Default export for Vercel
+app = app
