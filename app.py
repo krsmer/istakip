@@ -8,7 +8,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 # Flask uygulamasını oluştur
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///calisanlar.db'
+
+# Vercel için database yolu
+import os
+db_path = os.environ.get('DATABASE_URL', 'sqlite:///calisanlar.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = db_path
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Veritabanı
