@@ -68,7 +68,9 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for kayit, calisan in kayitlar %}
+                                {% for kayit in kayitlar %}
+                                    {% set calisan = get_calisan_by_name_template(kayit.name) %}
+                                    {% if calisan %}
                                     <tr>
                                         <td>
                                             <a href="{{ url_for('calisan_detay', calisan_id=calisan.id) }}" 
@@ -81,28 +83,30 @@
                                         </td>
                                         <td>
                                             <span class="badge bg-info">
-                                                {{ kayit.tarih.strftime('%d/%m/%Y') }}
+                                                {{ kayit.date }}
                                             </span>
                                             <br>
                                             <small class="text-muted">
-                                                {{ kayit.tarih.strftime('%A') }}
+                                                {{ kayit.check_in_time.strftime('%A') if kayit.check_in_time else '' }}
                                             </small>
                                         </td>
                                         <td>
+                                            {% set hour = kayit.time.split(':')[0]|int if kayit.time else 12 %}
                                             <span class="h5 
-                                                {% if kayit.saat.hour <= 8 %}text-success
-                                                {% elif kayit.saat.hour <= 9 %}text-warning  
+                                                {% if hour <= 8 %}text-success
+                                                {% elif hour <= 9 %}text-warning  
                                                 {% else %}text-danger
                                                 {% endif %}">
-                                                {{ kayit.saat.strftime('%H:%M') }}
+                                                {{ kayit.time }}
                                             </span>
                                         </td>
                                         <td>
-                                            {% if kayit.saat.hour <= 8 %}
+                                            {% set hour = kayit.time.split(':')[0]|int if kayit.time else 12 %}
+                                            {% if hour <= 8 %}
                                                 <span class="badge bg-success">
                                                     <i class="bi bi-check-circle"></i> Zamanında
                                                 </span>
-                                            {% elif kayit.saat.hour <= 9 %}
+                                            {% elif hour <= 9 %}
                                                 <span class="badge bg-warning">
                                                     <i class="bi bi-clock"></i> Hafif Gecikme
                                                 </span>
@@ -113,6 +117,7 @@
                                             {% endif %}
                                         </td>
                                     </tr>
+                                    {% endif %}
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -134,7 +139,13 @@
                         <div class="col-md-3">
                             <div class="card bg-success text-white">
                                 <div class="card-body text-center">
-                                    <h4>{{ kayitlar|selectattr('0.saat')|selectattr('0.saat.hour', '<=', 8)|list|length }}</h4>
+                                    {% set zamaninda_count = 0 %}
+                                    {% for kayit in kayitlar %}
+                                        {% if kayit.time and kayit.time.split(':')[0]|int <= 8 %}
+                                            {% set zamaninda_count = zamaninda_count + 1 %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    <h4>{{ zamaninda_count }}</h4>
                                     <p class="mb-0">Zamanında</p>
                                 </div>
                             </div>
@@ -142,7 +153,16 @@
                         <div class="col-md-3">
                             <div class="card bg-warning text-white">
                                 <div class="card-body text-center">
-                                    <h4>{{ kayitlar|selectattr('0.saat')|selectattr('0.saat.hour', '>', 8)|selectattr('0.saat.hour', '<=', 9)|list|length }}</h4>
+                                    {% set hafif_gec_count = 0 %}
+                                    {% for kayit in kayitlar %}
+                                        {% if kayit.time %}
+                                            {% set hour = kayit.time.split(':')[0]|int %}
+                                            {% if hour > 8 and hour <= 9 %}
+                                                {% set hafif_gec_count = hafif_gec_count + 1 %}
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    <h4>{{ hafif_gec_count }}</h4>
                                     <p class="mb-0">Hafif Gecikme</p>
                                 </div>
                             </div>
@@ -150,7 +170,13 @@
                         <div class="col-md-3">
                             <div class="card bg-danger text-white">
                                 <div class="card-body text-center">
-                                    <h4>{{ kayitlar|selectattr('0.saat')|selectattr('0.saat.hour', '>', 9)|list|length }}</h4>
+                                    {% set cok_gec_count = 0 %}
+                                    {% for kayit in kayitlar %}
+                                        {% if kayit.time and kayit.time.split(':')[0]|int > 9 %}
+                                            {% set cok_gec_count = cok_gec_count + 1 %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    <h4>{{ cok_gec_count }}</h4>
                                     <p class="mb-0">Geç Kaldı</p>
                                 </div>
                             </div>

@@ -24,7 +24,7 @@
                 {% endwith %}
                 
                 <!-- Basit Form -->
-                <form method="POST" action="/admin-login" id="loginForm">
+                <form method="POST" action="/admin" id="loginForm">
                     <div class="text-center mb-4">
                         <i class="bi bi-person-badge" style="font-size: 4rem; color: #667eea;"></i>
                         <h5 class="mt-2 text-primary">Hoşgeldin Hilmi</h5>
@@ -32,11 +32,22 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="sifre" class="form-label">
+                        <label for="username" class="form-label">
+                            <i class="bi bi-person"></i> Kullanıcı Adı
+                        </label>
+                        <input type="text" class="form-control form-control-lg" 
+                               id="username" name="username" 
+                               placeholder="Kullanıcı adınızı girin" 
+                               required
+                               value="Hilmi">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">
                             <i class="bi bi-key"></i> Şifre
                         </label>
                         <input type="password" class="form-control form-control-lg" 
-                               id="sifre" name="sifre" 
+                               id="password" name="password" 
                                placeholder="Şifrenizi girin" 
                                required autofocus
                                value="">

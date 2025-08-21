@@ -7,7 +7,7 @@
     <div class="col-12">
         <!-- Geri Dön Butonu -->
         <div class="mb-3">
-            <a href="{{ url_for('yonetici') }}" class="btn btn-secondary">
+            <a href="{{ url_for('admin_panel') }}" class="btn btn-secondary">
                 <i class="bi bi-arrow-left"></i> Yönetici Paneline Dön
             </a>
         </div>
@@ -46,6 +46,14 @@
                             <div class="card-body">
                                 <h4 class="text-warning">{{ istatistikler.hafif_gec }}</h4>
                                 <p class="card-text">Hafif Gecikme</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card border-danger">
+                            <div class="card-body">
+                                <h4 class="text-danger">{{ istatistikler.cok_gec }}</h4>
+                                <p class="card-text">Çok Geç Kaldı</p>
                             </div>
                         </div>
                     </div>
@@ -91,28 +99,30 @@
                                     <tr>
                                         <td>
                                             <span class="badge bg-info text-dark">
-                                                {{ kayit.tarih.strftime('%d/%m/%Y') }}
+                                                {{ kayit.date }}
                                             </span>
                                             <br>
                                             <small class="text-muted">
-                                                {{ kayit.tarih.strftime('%A') }}
+                                                {{ kayit.check_in_time.strftime('%A') if kayit.check_in_time else '' }}
                                             </small>
                                         </td>
                                         <td>
+                                            {% set hour = kayit.time.split(':')[0]|int if kayit.time else 12 %}
                                             <span class="h5 
-                                                {% if kayit.saat.hour <= 8 %}text-success
-                                                {% elif kayit.saat.hour <= 9 %}text-warning  
+                                                {% if hour <= 8 %}text-success
+                                                {% elif hour <= 9 %}text-warning  
                                                 {% else %}text-danger
                                                 {% endif %}">
-                                                {{ kayit.saat.strftime('%H:%M') }}
+                                                {{ kayit.time }}
                                             </span>
                                         </td>
                                         <td>
-                                            {% if kayit.saat.hour <= 8 %}
+                                            {% set hour = kayit.time.split(':')[0]|int if kayit.time else 12 %}
+                                            {% if hour <= 8 %}
                                                 <span class="badge bg-success">
                                                     <i class="bi bi-check-circle"></i> Zamanında
                                                 </span>
-                                            {% elif kayit.saat.hour <= 9 %}
+                                            {% elif hour <= 9 %}
                                                 <span class="badge bg-warning">
                                                     <i class="bi bi-clock"></i> Hafif Gecikme
                                                 </span>

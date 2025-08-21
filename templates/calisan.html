@@ -109,7 +109,7 @@
                             // Konum onaylandı, işe geldi kaydı yap
                             locationStatus.className = 'alert alert-success mb-3';
                             locationMessage.textContent = data.message;
-                            iseGeldiKaydet();
+                            iseGeldiKaydet(userLat, userLon);
                         } else {
                             // Konum uygun değil
                             locationStatus.className = 'alert alert-danger mb-3';
@@ -164,7 +164,7 @@
     }
     
     // İşe geldi kaydı (konum onaylandıktan sonra)
-    function iseGeldiKaydet() {
+    function iseGeldiKaydet(latitude, longitude) {
         const btn = document.getElementById('ise-geldi-btn');
         const sonucMesaj = document.getElementById('sonuc-mesaj');
         
@@ -172,11 +172,15 @@
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Kaydediliyor...';
         
-        fetch('{{ url_for("ise_geldi", id=calisan.id) }}', {
+        // Form data oluştur
+        const formData = new FormData();
+        formData.append('calisan_id', '{{ calisan.id }}');
+        formData.append('latitude', latitude);
+        formData.append('longitude', longitude);
+        
+        fetch('{{ url_for("ise_geldi") }}', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
+            body: formData
         })
         .then(response => response.json())
         .then(data => {

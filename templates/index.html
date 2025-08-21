@@ -24,7 +24,7 @@
                                         <p class="card-text text-muted">
                                             <i class="bi bi-telephone"></i> {{ calisan.telefon }}
                                         </p>
-                                        <a href="{{ url_for('calisan_sayfasi', id=calisan.id) }}" class="btn btn-primary">
+                                        <a href="{{ url_for('calisan', calisan_id=calisan.id) }}" class="btn btn-primary">
                                             <i class="bi bi-box-arrow-in-right"></i> Geldiğimi Kaydet
                                         </a>
                                     </div>

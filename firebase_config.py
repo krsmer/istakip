@@ -27,7 +27,12 @@ class FirebaseDB:
                     return
             else:
                 # Local development - service account key dosyasından
-                cred = credentials.Certificate('firebase-service-account.json')
+                try:
+                    cred = credentials.Certificate('firebase-service-account.json')
+                except FileNotFoundError:
+                    print("⚠️  Firebase service account dosyası bulunamadı. Uygulamanız veritabanı olmadan çalışacak.")
+                    self.db = None
+                    return
             
             if not firebase_admin._apps:
                 firebase_admin.initialize_app(cred)
@@ -41,7 +46,7 @@ class FirebaseDB:
             traceback.print_exc()
             self.db = None
     
-    def add_attendance(self, name, check_in_time=None):
+    def add_attendance(self, name, check_in_time=None, latitude=None, longitude=None):
         """Devam kaydı ekle"""
         if not self.db:
             return False
@@ -57,6 +62,11 @@ class FirebaseDB:
                 'time': check_in_time.strftime('%H:%M:%S'),
                 'timestamp': firestore.SERVER_TIMESTAMP
             }
+            
+            # GPS koordinatları varsa ekle
+            if latitude is not None and longitude is not None:
+                doc_data['latitude'] = latitude
+                doc_data['longitude'] = longitude
             
             # Firestore'a kaydet
             doc_ref = self.db.collection('attendance').add(doc_data)

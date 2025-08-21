@@ -22,6 +22,12 @@ WORK_LOCATION = {
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 
+# Template fonksiyonları
+@app.template_global()
+def get_calisan_by_name_template(name):
+    """Template için çalışan bilgisi getir"""
+    return get_calisan_by_name(name)
+
 # Türkiye saati için yardımcı fonksiyon
 def get_turkey_time():
     return datetime.now(TURKEY_TZ)
@@ -91,6 +97,48 @@ def calisan_detay(calisan_id):
         flash("Çalışan bulunamadı!", "error")
         return redirect(url_for('index'))
     
+    # Firebase'den bu çalışanın tüm kayıtlarını getir
+    kayitlar = firebase_db.get_employee_attendance(calisan['ad'])
+    
+    # İstatistikleri hesapla
+    toplam_gun = len(kayitlar)
+    zamaninda = 0
+    hafif_gec = 0
+    cok_gec = 0
+    
+    for kayit in kayitlar:
+        if 'time' in kayit:
+            saat_str = kayit['time']
+            saat_parts = saat_str.split(':')
+            saat = int(saat_parts[0])
+            
+            if saat <= 8:
+                zamaninda += 1
+            elif saat <= 9:
+                hafif_gec += 1
+            else:
+                cok_gec += 1
+    
+    zamaninda_oran = round((zamaninda / toplam_gun * 100), 1) if toplam_gun > 0 else 0
+    
+    istatistikler = {
+        'toplam_gun': toplam_gun,
+        'zamaninda': zamaninda,
+        'hafif_gec': hafif_gec,
+        'cok_gec': cok_gec,
+        'zamaninda_oran': zamaninda_oran
+    }
+    
+    return render_template('calisan_detay.html', calisan=calisan, kayitlar=kayitlar, istatistikler=istatistikler)
+
+# Çalışan sayfası (işe geldi butonu için)
+@app.route('/calisan/<int:calisan_id>/form')
+def calisan(calisan_id):
+    calisan = get_calisan_by_id(calisan_id)
+    if not calisan:
+        flash("Çalışan bulunamadı!", "error")
+        return redirect(url_for('index'))
+    
     # Bugün çalışanın girişi var mı kontrol et
     bugun_giris_var = firebase_db.check_today_attendance(calisan['ad'])
     
@@ -138,6 +186,27 @@ def ise_geldi():
         print(f"Kayıt hatası: {e}")
         return jsonify({"success": False, "message": "Kayıt sırasında hata oluştu!"})
 
+# Konum kontrolü
+@app.route('/check_location', methods=['POST'])
+def check_location():
+    data = request.get_json()
+    user_lat = data.get('latitude', 0)
+    user_lng = data.get('longitude', 0)
+    
+    # GPS mesafe kontrolü
+    mesafe = haversine(user_lat, user_lng, WORK_LOCATION['latitude'], WORK_LOCATION['longitude'])
+    
+    if mesafe > WORK_LOCATION['radius']:
+        return jsonify({
+            "success": False, 
+            "message": f"İş yerine çok uzaksınız! (Mesafe: {mesafe:.0f}m) Maksimum {WORK_LOCATION['radius']}m mesafede olmalısınız."
+        })
+    else:
+        return jsonify({
+            "success": True, 
+            "message": f"Konumunuz onaylandı! (Mesafe: {mesafe:.0f}m)"
+        })
+
 # Admin girişi
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
@@ -165,7 +234,7 @@ def admin_panel():
     kayitlar = firebase_db.get_all_attendance()
     
     admin_username = session.get('admin_username', 'Admin')
-    return render_template('admin_panel.html', kayitlar=kayitlar, admin_username=admin_username)
+    return render_template('yonetici.html', kayitlar=kayitlar, admin_username=admin_username, calisanlar=CALISANLAR)
 
 # Admin çıkışı
 @app.route('/admin/logout')
@@ -173,6 +242,63 @@ def admin_logout():
     session.clear()
     flash('Başarıyla çıkış yaptınız!', 'success')
     return redirect(url_for('index'))
+
+# Excel indirme
+@app.route('/excel_indir')
+def excel_indir():
+    if not session.get('admin_logged_in'):
+        flash('Lütfen önce giriş yapın!', 'error')
+        return redirect(url_for('admin'))
+    
+    # Firebase'den tüm kayıtları getir
+    kayitlar = firebase_db.get_all_attendance()
+    
+    # CSV dosyası oluştur
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Başlık satırı
+    writer.writerow(['Çalışan Adı', 'Tarih', 'Saat', 'Timestamp'])
+    
+    # Veri satırları
+    for kayit in kayitlar:
+        writer.writerow([
+            kayit.get('name', ''),
+            kayit.get('date', ''),
+            kayit.get('time', ''),
+            kayit.get('check_in_time', '').strftime('%Y-%m-%d %H:%M:%S') if kayit.get('check_in_time') else ''
+        ])
+    
+    # StringIO'yu BytesIO'ya çevir
+    mem = io.BytesIO()
+    mem.write(output.getvalue().encode('utf-8-sig'))  # Excel'de Türkçe karakterler için
+    mem.seek(0)
+    output.close()
+    
+    return send_file(mem, 
+                     download_name=f'devam_raporu_{datetime.now().strftime("%Y%m%d")}.csv',
+                     as_attachment=True, 
+                     mimetype='text/csv')
+
+# Manuel temizlik
+@app.route('/manuel_temizlik', methods=['POST'])
+def manuel_temizlik():
+    if not session.get('admin_logged_in'):
+        flash('Lütfen önce giriş yapın!', 'error')
+        return redirect(url_for('admin'))
+    
+    try:
+        # 60 günden eski kayıtları sil
+        cutoff_date = (datetime.now() - timedelta(days=60)).strftime('%Y-%m-%d')
+        
+        # Bu işlevsellik Firebase için implement edilebilir
+        # Şimdilik flash mesajı ile kullanıcıya bilgi verelim
+        flash('Manuel temizlik işlemi şu anda Firebase için geliştirilmektedir.', 'info')
+        
+    except Exception as e:
+        flash(f'Temizlik işlemi sırasında hata oluştu: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_panel'))
 
 # Health check
 @app.route('/health')
@@ -182,6 +308,15 @@ def health():
         "database": "firebase",
         "timestamp": datetime.now().isoformat()
     })
+
+# Error handling
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    return render_template('500.html'), 500
 
 if __name__ == '__main__':
     # Local development
