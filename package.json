@@ -1,0 +1,17 @@
+{
+  "name": "istakip-firebase",
+  "version": "1.0.0",
+  "description": "Employee attendance tracking system with Firebase and Vercel",
+  "main": "app_firebase.py",
+  "scripts": {
+    "dev": "python app_firebase.py",
+    "start": "python app_firebase.py"
+  },
+  "keywords": ["flask", "firebase", "attendance", "vercel"],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {},
+  "engines": {
+    "python": "3.x"
+  }
+}
